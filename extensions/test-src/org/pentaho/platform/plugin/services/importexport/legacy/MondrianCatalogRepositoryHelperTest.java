@@ -12,6 +12,7 @@ import org.pentaho.platform.api.engine.IUserRoleListService;
 import org.pentaho.platform.api.mt.ITenant;
 import org.pentaho.platform.api.repository2.unified.RepositoryFile;
 import org.pentaho.platform.engine.core.system.PentahoSystem;
+import org.pentaho.platform.engine.core.system.TenantUtils;
 import org.pentaho.platform.engine.security.SecurityHelper;
 import org.pentaho.platform.repository2.ClientRepositoryPaths;
 import org.pentaho.platform.repository2.unified.DefaultUnifiedRepositoryBase;
@@ -53,6 +54,11 @@ public class MondrianCatalogRepositoryHelperTest extends DefaultUnifiedRepositor
     super.setUp();
 
     loginAsSysTenantAdmin();
+
+    final ITenant defaultTenant = tenantManager.createTenant( systemTenant, TenantUtils.getDefaultTenant(), tenantAdminRoleName,
+      tenantAuthenticatedRoleName, ANONYMOUS_ROLE_NAME );
+    userRoleDao.createUser( defaultTenant, singleTenantAdminUserName, PASSWORD, "", new String[]{ tenantAdminRoleName } );
+
     repo.createFolder( repo.getFile( "/etc" ).getId(), new RepositoryFile.Builder( MONDRIAN ).folder( true ).build(),
       "" );
 
