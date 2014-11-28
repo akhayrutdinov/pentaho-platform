@@ -9,7 +9,7 @@ public interface IShadowNodeHelper {
 
   boolean isVisibleFor( String filePath, String user );
 
-  boolean createShadowNodeFor( String filePath );
+  boolean createShadowNodeForFile( String catalog, String fileName );
 
   boolean removeShadowNodeFor( String filePath );
 

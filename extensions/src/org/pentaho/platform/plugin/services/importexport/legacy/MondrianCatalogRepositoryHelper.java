@@ -96,7 +96,6 @@ public class MondrianCatalogRepositoryHelper {
 
   public void addHostedCatalog( InputStream mondrianFile, String catalogName, String datasourceInfo ) throws Exception {
     RepositoryFile catalog = createCatalog( catalogName, datasourceInfo );
-    RepositoryFile shadowedMondrianFolder = shadowNodeHelper.getJcrFolder();
 
     File tempFile = File.createTempFile( "tempFile", null );
     tempFile.deleteOnExit();
@@ -116,11 +115,7 @@ public class MondrianCatalogRepositoryHelper {
         repoFileBundle.getInputStream(), repoFileBundle.getCharset(), repoFileBundle.getMimeType() );
     if ( schema == null ) {
       repository.createFile( catalog.getId(), repoFileBundle.getFile(), data, null );
-
-      RepositoryFile shadowedCatalog = repository.createFolder( shadowedMondrianFolder.getId(), new RepositoryFile.Builder( catalogName ).folder( true ).build(),
-        "" );
-      repository.createFile( shadowedCatalog.getId(), new RepositoryFile.Builder( repoFile.getName() ).build(),
-        new NodeRepositoryFileData( new DataNode( "acl" ) ), null );
+      shadowNodeHelper.createShadowNodeForFile( catalogName, repoFile.getName() );
     } else {
       repository.updateFile( schema, data, null );
       // todo Khayrutdinov : update Acl if needed

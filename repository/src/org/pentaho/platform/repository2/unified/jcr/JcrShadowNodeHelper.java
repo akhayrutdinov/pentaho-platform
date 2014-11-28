@@ -1,9 +1,12 @@
 package org.pentaho.platform.repository2.unified.jcr;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.pentaho.platform.api.repository2.unified.IUnifiedRepository;
 import org.pentaho.platform.api.repository2.unified.RepositoryFile;
+import org.pentaho.platform.api.repository2.unified.data.node.DataNode;
+import org.pentaho.platform.api.repository2.unified.data.node.NodeRepositoryFileData;
 import org.pentaho.platform.engine.security.SecurityHelper;
 import org.pentaho.platform.repository2.unified.IRepositoryFileAclDao;
 
@@ -50,14 +53,13 @@ public class JcrShadowNodeHelper implements IShadowNodeHelper {
     }
   }
 
-  @Override public boolean createShadowNodeFor( String filePath ) {
-    /*try {
-      return SecurityHelper.getInstance().runAsSystem( createCommand( getJcrPath() + SEPARATOR + filePath ) );
+  @Override public boolean createShadowNodeForFile( String catalog, String fileName) {
+    try {
+      return SecurityHelper.getInstance().runAsSystem( createFileCommand( catalog, fileName ) );
     } catch ( Exception e ) {
       logger.error( e );
       throw new RuntimeException( e );
-    } */
-    throw new UnsupportedOperationException(  );
+    }
   }
 
   @Override public boolean removeShadowNodeFor( String filePath ) {
@@ -84,6 +86,10 @@ public class JcrShadowNodeHelper implements IShadowNodeHelper {
 
   private Callable<Boolean> removePathCommand( String fullPath ) {
     return new RemovePathCommand( unifiedRepository, fullPath );
+  }
+
+  private Callable<Boolean> createFileCommand(String catalog, String fileName) {
+    return new CreateFileCommand( unifiedRepository, getJcrPath(), catalog, fileName );
   }
 
   private static class CheckPathCommand implements Callable<Boolean> {
@@ -115,6 +121,37 @@ public class JcrShadowNodeHelper implements IShadowNodeHelper {
         unifiedRepository.deleteFile( file.getId(), true, "Removing shadow node for path: " + fullPath );
       }
       return Boolean.TRUE;
+    }
+  }
+
+  private static class CreateFileCommand implements Callable<Boolean> {
+    private final IUnifiedRepository unifiedRepository;
+    private final String jcrPath;
+    private final String catalog;
+    private final String fileName;
+
+    public CreateFileCommand( IUnifiedRepository unifiedRepository, String jcrPath, String catalog,
+                              String fileName ) {
+      this.unifiedRepository = unifiedRepository;
+      this.jcrPath = jcrPath;
+      this.catalog = catalog;
+      this.fileName = fileName;
+    }
+
+    @Override public Boolean call() throws Exception {
+      RepositoryFile jcrFolder = unifiedRepository.getFile( jcrPath );
+
+      RepositoryFile folder;
+      if ( StringUtils.isNotEmpty( catalog )) {
+        folder = unifiedRepository.createFolder( jcrFolder.getId(), purFolder( catalog ), "" );
+      } else {
+        folder = jcrFolder;
+      }
+
+      RepositoryFile result = unifiedRepository.createFile( folder.getId(), purFile( fileName ),
+        new NodeRepositoryFileData( new DataNode( "acl" ) ), "" );
+
+      return result != null;
     }
   }
 }
