@@ -19,11 +19,14 @@
 package org.pentaho.platform.repository2.unified;
 
 import static org.junit.Assert.assertNotNull;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -158,6 +161,7 @@ public class DefaultUnifiedRepositoryBase implements ApplicationContextAware {
   protected IRepositoryFileAclDao repositoryFileAclDao;
 
   protected String repositoryAdminUsername;
+  protected String singleTenantAdminUserName;
 
   protected IBackingRepositoryLifecycleManager defaultBackingRepositoryLifecycleManager;
 
@@ -177,7 +181,7 @@ public class DefaultUnifiedRepositoryBase implements ApplicationContextAware {
   protected ITenantedPrincipleNameResolver userNameUtils = new DefaultTenantedPrincipleNameResolver();
 
   protected ITenantedPrincipleNameResolver roleNameUtils = new DefaultTenantedPrincipleNameResolver(
-    DefaultTenantedPrincipleNameResolver.ALTERNATE_DELIMETER );
+      DefaultTenantedPrincipleNameResolver.ALTERNATE_DELIMETER );
 
   protected String superAdminRoleName;
   protected String tenantAdminRoleName;
@@ -227,12 +231,20 @@ public class DefaultUnifiedRepositoryBase implements ApplicationContextAware {
     mp.defineInstance( "roleAuthorizationPolicyRoleBindingDaoTarget", roleBindingDaoTarget );
     mp.defineInstance( "repositoryAdminUsername", repositoryAdminUsername );
     mp.defineInstance( "RepositoryFileProxyFactory", new RepositoryFileProxyFactory( this.jcrTemplate,
-      this.repositoryFileDao ) );
+        this.repositoryFileDao ) );
     mp.defineInstance( "ITenantedPrincipleNameResolver", new DefaultTenantedPrincipleNameResolver() );
     mp.defineInstance("useMultiByteEncoding", new Boolean( false ) );
     mp.defineInstance( IUnifiedRepository.class, repo );
     mp.defineInstance( IRepositoryFileAclDao.class, repositoryFileAclDao );
-    mp.define( IUserRoleListService.class, StubUserRoleListService.class );
+    final IUserRoleListService userRoleListService = mock( IUserRoleListService.class );
+    when( userRoleListService.getRolesForUser( any( ITenant.class ), anyString() ) ).thenReturn( new ArrayList<String>() {
+      {
+        add( tenantAdminRoleName );
+        add( AUTHENTICATED_ROLE_NAME );
+      } }
+    );
+    mp.defineInstance( IUserRoleListService.class, userRoleListService );
+    mp.defineInstance( "singleTenantAdminUserName", singleTenantAdminUserName );
     // Start the micro-platform
     mp.start();
     loginAsRepositoryAdmin();
@@ -251,7 +263,7 @@ public class DefaultUnifiedRepositoryBase implements ApplicationContextAware {
     authorizationPolicy = null;
     loginAsSysTenantAdmin();
     ITenant tenant =
-      tenantManager.getTenant( "/" + ServerRepositoryPaths.getPentahoRootFolderName() + "/" + TENANT_ID_ACME );
+        tenantManager.getTenant( "/" + ServerRepositoryPaths.getPentahoRootFolderName() + "/" + TENANT_ID_ACME );
     if ( tenant != null ) {
       cleanupUserAndRoles( tenant );
     }
@@ -265,6 +277,7 @@ public class DefaultUnifiedRepositoryBase implements ApplicationContextAware {
     logout();
 
     repositoryAdminUsername = null;
+    singleTenantAdminUserName = null;
     tenantAdminRoleName = null;
     tenantAuthenticatedRoleName = null;
     roleBindingDao = null;
@@ -341,9 +354,9 @@ public class DefaultUnifiedRepositoryBase implements ApplicationContextAware {
       new GrantedAuthority[] { new GrantedAuthorityImpl( superAdminRoleName ) };
     final String password = "ignored";
     UserDetails repositoryAdminUserDetails =
-      new User( repositoryAdminUsername, password, true, true, true, true, repositoryAdminAuthorities );
+        new User( repositoryAdminUsername, password, true, true, true, true, repositoryAdminAuthorities );
     Authentication repositoryAdminAuthentication =
-      new UsernamePasswordAuthenticationToken( repositoryAdminUserDetails, password, repositoryAdminAuthorities );
+        new UsernamePasswordAuthenticationToken( repositoryAdminUserDetails, password, repositoryAdminAuthorities );
     PentahoSessionHolder.setSession( pentahoSession );
     // this line necessary for Spring Security's MethodSecurityInterceptor
     SecurityContextHolder.getContext().setAuthentication( repositoryAdminAuthentication );
@@ -398,7 +411,7 @@ public class DefaultUnifiedRepositoryBase implements ApplicationContextAware {
 
               String tenantAuthenticatedRoleId = roleNameUtils.getPrincipleId( theTenant, tenantAuthenticatedRoleName );
               RepositoryFileSid tenantAuthenticatedRoleSid =
-                new RepositoryFileSid( tenantAuthenticatedRoleId, RepositoryFileSid.Type.ROLE );
+                  new RepositoryFileSid( tenantAuthenticatedRoleId, RepositoryFileSid.Type.ROLE );
 
               aclsForTenantHomeFolder =
                 new RepositoryFileAcl.Builder( userSid ).ace( tenantAuthenticatedRoleSid, EnumSet
@@ -480,7 +493,7 @@ public class DefaultUnifiedRepositoryBase implements ApplicationContextAware {
   }
 
   protected RepositoryFile createSampleFile( final String parentFolderPath, final String fileName,
-    final String sampleString, final boolean sampleBoolean, final int sampleInteger, boolean versioned )
+      final String sampleString, final boolean sampleBoolean, final int sampleInteger, boolean versioned )
     throws Exception {
     RepositoryFile parentFolder = repo.getFile( parentFolderPath );
     final SampleRepositoryFileData content = new SampleRepositoryFileData( sampleString, sampleBoolean, sampleInteger );
@@ -489,7 +502,7 @@ public class DefaultUnifiedRepositoryBase implements ApplicationContextAware {
   }
 
   protected RepositoryFile createSampleFile( final String parentFolderPath, final String fileName,
-    final String sampleString, final boolean sampleBoolean, final int sampleInteger ) throws Exception {
+      final String sampleString, final boolean sampleBoolean, final int sampleInteger ) throws Exception {
     return createSampleFile( parentFolderPath, fileName, sampleString, sampleBoolean, sampleInteger, false );
   }
 
@@ -508,7 +521,7 @@ public class DefaultUnifiedRepositoryBase implements ApplicationContextAware {
           privilegeManager.getPrivilege( pentahoJcrConstants.getPHO_ACLMANAGEMENT_PRIVILEGE() );
         } catch ( AccessControlException ace ) {
           privilegeManager.registerPrivilege( pentahoJcrConstants.getPHO_ACLMANAGEMENT_PRIVILEGE(), false,
-            new String[0] );
+              new String[0] );
         }
         session.save();
         return null;
@@ -541,6 +554,7 @@ public class DefaultUnifiedRepositoryBase implements ApplicationContextAware {
     jcrTemplate = (JcrTemplate) applicationContext.getBean( "jcrTemplate" );
 
     repositoryAdminUsername = (String) applicationContext.getBean( "repositoryAdminUsername" );
+    singleTenantAdminUserName = (String) applicationContext.getBean( "singleTenantAdminUserName" );
     superAdminRoleName = (String) applicationContext.getBean( "superAdminAuthorityName" );
     sysAdminUserName = (String) applicationContext.getBean( "superAdminUserName" );
     tenantAuthenticatedRoleName = (String) applicationContext.getBean( "singleTenantAuthenticatedAuthorityName" );
@@ -571,59 +585,4 @@ public class DefaultUnifiedRepositoryBase implements ApplicationContextAware {
   protected String getSolutionPath() {
     return null;
   }
-}
-
-class StubUserRoleListService implements IUserRoleListService {
-
-  public List getAllRoles() {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
-  public List getAllUsers() {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
-  public List getUsersInRole( String role ) {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
-  public List getRolesForUser( String userName ) {
-    return Arrays.asList( "FL_GATOR", "FS_SEMINOLE" );
-  }
-
-  @Override
-  public List<String> getAllRoles( ITenant tenant ) {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
-  @Override
-  public List<String> getAllUsers( ITenant tenant ) {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
-  @Override
-  public List<String> getUsersInRole( ITenant tenant, String role ) {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
-  @Override
-  public List<String> getRolesForUser( ITenant tenant, String username ) {
-    List roles = new ArrayList<String>();
-    roles.add( "Admin" );
-    roles.add( "Authenticated" );
-    return roles;
-  }
-
-  @Override
-  public List<String> getSystemRoles() {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
 }
