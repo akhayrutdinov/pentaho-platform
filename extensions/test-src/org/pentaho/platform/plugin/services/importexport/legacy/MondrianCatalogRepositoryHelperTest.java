@@ -17,6 +17,7 @@ import org.pentaho.platform.engine.security.SecurityHelper;
 import org.pentaho.platform.repository2.ClientRepositoryPaths;
 import org.pentaho.platform.repository2.unified.DefaultUnifiedRepositoryBase;
 import org.pentaho.platform.repository2.unified.IRepositoryFileAclDao;
+import org.pentaho.platform.repository2.unified.ServerRepositoryPaths;
 import org.pentaho.platform.repository2.unified.jcr.IShadowNodeHelper;
 import org.pentaho.platform.repository2.unified.jcr.IShadowNodeHelperProvider;
 import org.pentaho.platform.repository2.unified.jcr.JcrShadowNodeHelper;
@@ -57,12 +58,27 @@ public class MondrianCatalogRepositoryHelperTest extends DefaultUnifiedRepositor
 
     final ITenant defaultTenant = tenantManager.createTenant( systemTenant, TenantUtils.getDefaultTenant(), tenantAdminRoleName,
       tenantAuthenticatedRoleName, ANONYMOUS_ROLE_NAME );
-    userRoleDao.createUser( defaultTenant, singleTenantAdminUserName, PASSWORD, "", new String[]{ tenantAdminRoleName } );
+    userRoleDao.createUser( defaultTenant, singleTenantAdminUserName, PASSWORD, "",
+      new String[] { tenantAdminRoleName } );
 
     repo.createFolder( repo.getFile( "/etc" ).getId(), new RepositoryFile.Builder( MONDRIAN ).folder( true ).build(),
       "" );
 
     helper = new MondrianCatalogRepositoryHelper( repo );
+  }
+
+  @Override
+  @After
+  public void tearDown() throws Exception {
+    loginAsSysTenantAdmin();
+
+    ITenant defaultTenant = tenantManager.getTenant( "/" + ServerRepositoryPaths.getPentahoRootFolderName() + "/" + TenantUtils.getDefaultTenant() );
+    if ( defaultTenant != null ) {
+      cleanupUserAndRoles( defaultTenant );
+    }
+
+    super.tearDown();
+
   }
 
   @Test

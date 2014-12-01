@@ -24,7 +24,7 @@ public class JcrShadowNodeHelper implements IShadowNodeHelper {
   private final IRepositoryFileAclDao repositoryFileAclDao;
   private final String jcrPath;
 
-  public JcrShadowNodeHelper( IUnifiedRepository unifiedRepository,
+  JcrShadowNodeHelper( IUnifiedRepository unifiedRepository,
                               IRepositoryFileAclDao repositoryFileAclDao,
                               String jcrPath) {
     this.unifiedRepository = unifiedRepository;
@@ -55,7 +55,8 @@ public class JcrShadowNodeHelper implements IShadowNodeHelper {
 
   @Override public boolean createShadowNodeForFile( String catalog, String fileName) {
     try {
-      return SecurityHelper.getInstance().runAsSystem( createFileCommand( catalog, fileName ) );
+      // todo Khayrutdinov
+      return createFileCommand( catalog, fileName ).call();
     } catch ( Exception e ) {
       logger.error( e );
       throw new RuntimeException( e );
@@ -64,7 +65,8 @@ public class JcrShadowNodeHelper implements IShadowNodeHelper {
 
   @Override public boolean removeShadowNodeFor( String filePath ) {
     try {
-      return SecurityHelper.getInstance().runAsSystem( removePathCommand( getJcrPath() + SEPARATOR + filePath ) );
+      // todo Khayrutdinov
+      return removePathCommand( getJcrPath() + SEPARATOR + filePath ).call();
     } catch ( Exception e ) {
       logger.error( e );
       throw new RuntimeException( e );
