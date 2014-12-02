@@ -21,15 +21,19 @@ package org.pentaho.platform.plugin.services.metadata;
 import junit.framework.TestCase;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
+
 import org.pentaho.metadata.model.Domain;
 import org.pentaho.metadata.model.LogicalModel;
 import org.pentaho.metadata.model.concept.types.LocaleType;
 import org.pentaho.metadata.util.LocalizationUtil;
 import org.pentaho.metadata.util.XmiParser;
+import org.pentaho.platform.api.engine.IPentahoSession;
 import org.pentaho.platform.api.repository2.unified.IUnifiedRepository;
 import org.pentaho.platform.api.repository2.unified.RepositoryFile;
+import org.pentaho.platform.engine.core.system.PentahoSessionHolder;
 import org.pentaho.platform.repository2.unified.RepositoryUtils;
 import org.pentaho.platform.repository2.unified.fs.FileSystemBackedUnifiedRepository;
+import org.pentaho.platform.api.repository2.unified.IAclNodeHelper;
 import org.pentaho.test.platform.repository2.unified.MockUnifiedRepository;
 
 import java.io.ByteArrayInputStream;
@@ -37,9 +41,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
+
+import org.mockito.Mockito;
+
+import static org.mockito.Mockito.*;
 
 /**
  * Class Description
@@ -60,7 +69,9 @@ public class PentahoMetadataDomainRepositoryTest extends TestCase {
   }
 
   protected PentahoMetadataDomainRepository createDomainRepository( final IUnifiedRepository repository,
-                                                                    final RepositoryUtils repositoryUtils, final XmiParser xmiParser, final LocalizationUtil localizationUtil ) {
+                                                                    final RepositoryUtils repositoryUtils,
+                                                                    final XmiParser xmiParser,
+                                                                    final LocalizationUtil localizationUtil ) {
     return new PentahoMetadataDomainRepository( repository, repositoryUtils, xmiParser, localizationUtil );
   }
 
@@ -71,14 +82,34 @@ public class PentahoMetadataDomainRepositoryTest extends TestCase {
     // System.err.println("tempDir = " + tempDir.getAbsolutePath());
     // repository = new FileSystemBackedUnifiedRepository(tempDir);
     // new RepositoryUtils(repository).getFolder("/etc/metadata", true, true, null);
-    repository.deleteFile( new RepositoryUtils( repository ).getFolder( "/etc/metadata", true, true, null ).getId(), true, null );
+
+    final IPentahoSession mockSession = Mockito.mock( IPentahoSession.class );
+    PentahoSessionHolder.setSession( mockSession );
+
+    repository
+      .deleteFile( new RepositoryUtils( repository ).getFolder( "/etc/metadata", true, true, null ).getId(), true,
+        null );
     assertNotNull( new RepositoryUtils( repository ).getFolder( "/etc/metadata", true, true, null ) );
 
     final MockXmiParser xmiParser = new MockXmiParser();
     domainRepository = createDomainRepository( repository, null, xmiParser, null );
+
+    domainRepository.setAclHelper( mockAclNodeHelper() );
+/*
+    PentahoMetadataDomainRepository mockit = Mockito.mock( PentahoMetadataDomainRepository.class );
+    doReturn( helper ).when( mockit ).getAclHelper();
+*/
     while ( domainRepository.getDomainIds().size() > 0 ) {
       domainRepository.removeDomain( domainRepository.getDomainIds().iterator().next() );
     }
+
+  }
+
+
+  private IAclNodeHelper mockAclNodeHelper() {
+    IAclNodeHelper helper = mock( IAclNodeHelper.class );
+    when( helper.canAccess( any( RepositoryFile.class ), any( EnumSet.class ) ) ).thenReturn( true );
+    return helper;
   }
 
   public void tearDown() throws Exception {
@@ -105,7 +136,7 @@ public class PentahoMetadataDomainRepositoryTest extends TestCase {
     final XmiParser xmiParser = new XmiParser();
     final LocalizationUtil localizationUtil = new LocalizationUtil();
     final PentahoMetadataDomainRepository repo =
-        createDomainRepository( repository, repositoryUtils, xmiParser, localizationUtil );
+      createDomainRepository( repository, repositoryUtils, xmiParser, localizationUtil );
     assertEquals( repository, repo.getRepository() );
     assertEquals( repositoryUtils, repo.getRepositoryUtils() );
     assertEquals( xmiParser, repo.getXmiParser() );
@@ -184,9 +215,12 @@ public class PentahoMetadataDomainRepositoryTest extends TestCase {
     domainRepository.removeDomain( STEEL_WHEELS );
     domainRepository.removeDomain( SAMPLE_DOMAIN_ID );
 
+    domainRepository.setAclHelper( mockAclNodeHelper() );
+
     final MockDomain originalDomain = new MockDomain( SAMPLE_DOMAIN_ID );
     domainRepository.storeDomain( originalDomain, false );
     final Domain testDomain1 = domainRepository.getDomain( SAMPLE_DOMAIN_ID );
+
     assertNotNull( testDomain1 );
     assertEquals( SAMPLE_DOMAIN_ID, testDomain1.getId() );
 
@@ -199,9 +233,9 @@ public class PentahoMetadataDomainRepositoryTest extends TestCase {
     final List<LogicalModel> logicalModels = testDomain2.getLogicalModels();
     assertEquals( 2, logicalModels.size() );
     assertTrue( "MODEL 1".equals( logicalModels.get( 0 ).getId() )
-        || "MODEL 1".equals( logicalModels.get( 1 ).getId() ) );
+      || "MODEL 1".equals( logicalModels.get( 1 ).getId() ) );
     assertTrue( "MODEL 2".equals( logicalModels.get( 0 ).getId() )
-        || "MODEL 2".equals( logicalModels.get( 1 ).getId() ) );
+      || "MODEL 2".equals( logicalModels.get( 1 ).getId() ) );
   }
 
   /*
@@ -314,8 +348,11 @@ public class PentahoMetadataDomainRepositoryTest extends TestCase {
     domainRepository.removeDomain( STEEL_WHEELS );
     domainRepository.removeDomain( SAMPLE_DOMAIN_ID );
 
+    domainRepository.setAclHelper( mockAclNodeHelper() );
+
     domainRepository.storeDomain( new MockDomain( SAMPLE_DOMAIN_ID ), true );
     final Set<String> domainIds1 = domainRepository.getDomainIds();
+
     assertNotNull( domainIds1 );
     assertEquals( 1, domainIds1.size() );
     assertTrue( domainIds1.contains( SAMPLE_DOMAIN_ID ) );
@@ -532,9 +569,9 @@ public class PentahoMetadataDomainRepositoryTest extends TestCase {
     public Domain parseXmi( final InputStream xmi ) throws Exception {
       String[] lines = IOUtils.toString( xmi ).split( "\\|" );
 
-      final MockDomain domain = new MockDomain( lines[0] );
+      final MockDomain domain = new MockDomain( lines[ 0 ] );
       for ( int i = 1; i < lines.length; ++i ) {
-        domain.addLogicalModel( lines[i] );
+        domain.addLogicalModel( lines[ i ] );
       }
       if ( domain.getId().equals( "exception" ) ) {
         throw new NullPointerException();

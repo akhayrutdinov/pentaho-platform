@@ -33,7 +33,7 @@ import java.util.Set;
 
 /**
  * Class Description
- * 
+ *
  * @author <a href="mailto:dkincade@pentaho.com">David M. Kincade</a>
  */
 public class CachingPentahoMetadataDomainRepository extends PentahoMetadataDomainRepository {
@@ -54,24 +54,20 @@ public class CachingPentahoMetadataDomainRepository extends PentahoMetadataDomai
    * @param localizationUtil
    */
   public CachingPentahoMetadataDomainRepository( final IUnifiedRepository repository,
-      final RepositoryUtils repositoryUtils, final XmiParser xmiParser, final LocalizationUtil localizationUtil ) {
+                                                 final RepositoryUtils repositoryUtils, final XmiParser xmiParser,
+                                                 final LocalizationUtil localizationUtil ) {
     super( repository, repositoryUtils, xmiParser, localizationUtil );
     cache = new HashMap<String, Domain>();
   }
 
   /**
    * Store a domain to the repository. The domain should persist between JVM restarts.
-   * 
-   * @param domain
-   *          domain object to store
-   * @param overwrite
-   *          if true, overwrite existing domain
-   * @throws org.pentaho.metadata.repository.DomainIdNullException
-   *           if domain id is null
-   * @throws org.pentaho.metadata.repository.DomainAlreadyExistsException
-   *           if domain exists and overwrite = false
-   * @throws org.pentaho.metadata.repository.DomainStorageException
-   *           if there is a problem storing the domain
+   *
+   * @param domain    domain object to store
+   * @param overwrite if true, overwrite existing domain
+   * @throws org.pentaho.metadata.repository.DomainIdNullException        if domain id is null
+   * @throws org.pentaho.metadata.repository.DomainAlreadyExistsException if domain exists and overwrite = false
+   * @throws org.pentaho.metadata.repository.DomainStorageException       if there is a problem storing the domain
    */
   @Override
   public void storeDomain( final Domain domain, final boolean overwrite ) throws DomainIdNullException,
@@ -83,9 +79,8 @@ public class CachingPentahoMetadataDomainRepository extends PentahoMetadataDomai
   /**
    * retrieve a domain from the repo. This does lazy loading of the repo, so it calls reloadDomains() if not already
    * loaded.
-   * 
-   * @param domainId
-   *          domain to get from the repository
+   *
+   * @param domainId domain to get from the repository
    * @return domain object
    */
   @Override
@@ -102,7 +97,7 @@ public class CachingPentahoMetadataDomainRepository extends PentahoMetadataDomai
 
   /**
    * Returns a list of all the domain ids in the repository.
-   * 
+   *
    * @return the domain Ids.
    */
   @Override
@@ -122,7 +117,8 @@ public class CachingPentahoMetadataDomainRepository extends PentahoMetadataDomai
   @Override
   public void reloadDomains() {
     flushDomains();
-    getDomainIds();
+    // it causes stack overflow
+    //getDomainIds();
   }
 
   /**

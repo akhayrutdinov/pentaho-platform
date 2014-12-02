@@ -90,16 +90,16 @@ public class MondrianCatalogRepositoryHelper {
 
     RepositoryFile repoFile = new RepositoryFile.Builder( "schema.xml" ).build();
     org.pentaho.platform.plugin.services.importexport.RepositoryFileBundle repoFileBundle =
-        new org.pentaho.platform.plugin.services.importexport.RepositoryFileBundle( repoFile, null,
-            ETC_MONDRIAN_JCR_FOLDER + RepositoryFile.SEPARATOR + catalogName + RepositoryFile.SEPARATOR, tempFile,
-            "UTF-8", "text/xml" );
+      new org.pentaho.platform.plugin.services.importexport.RepositoryFileBundle( repoFile, null,
+        ETC_MONDRIAN_JCR_FOLDER + RepositoryFile.SEPARATOR + catalogName + RepositoryFile.SEPARATOR, tempFile,
+        "UTF-8", "text/xml" );
 
     RepositoryFile schema =
-        repository.getFile( ETC_MONDRIAN_JCR_FOLDER + RepositoryFile.SEPARATOR + catalogName + RepositoryFile.SEPARATOR
-            + "schema.xml" );
+      repository.getFile( ETC_MONDRIAN_JCR_FOLDER + RepositoryFile.SEPARATOR + catalogName + RepositoryFile.SEPARATOR
+        + "schema.xml" );
     IRepositoryFileData data =
-        new StreamConverter().convert(
-            repoFileBundle.getInputStream(), repoFileBundle.getCharset(), repoFileBundle.getMimeType() );
+      new StreamConverter().convert(
+        repoFileBundle.getInputStream(), repoFileBundle.getCharset(), repoFileBundle.getMimeType() );
     if ( schema == null ) {
       repository.createFile( catalog.getId(), repoFileBundle.getFile(), data, null );
     } else {
@@ -435,6 +435,10 @@ public class MondrianCatalogRepositoryHelper {
     return values;
   }
 
+  public RepositoryFile getMondrianCatalogFile(String catalogName) {
+    return repository.getFile( ETC_MONDRIAN_JCR_FOLDER + RepositoryFile.SEPARATOR + catalogName );
+  }
+
   /*
    * Creates "/etc/mondrian/<catalog>"
    */
@@ -445,9 +449,9 @@ public class MondrianCatalogRepositoryHelper {
      * alternate implementation. Use catalog name.
      */
 
-    RepositoryFile etcMondrian = repository.getFile( ETC_MONDRIAN_JCR_FOLDER );
-    RepositoryFile catalog = repository.getFile( ETC_MONDRIAN_JCR_FOLDER + RepositoryFile.SEPARATOR + catalogName );
+    RepositoryFile catalog = getMondrianCatalogFile( catalogName );
     if ( catalog == null ) {
+      RepositoryFile etcMondrian = repository.getFile( ETC_MONDRIAN_JCR_FOLDER );
       catalog =
           repository.createFolder( etcMondrian.getId(), new RepositoryFile.Builder( catalogName ).folder( true )
               .build(), "" );

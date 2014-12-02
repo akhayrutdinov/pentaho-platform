@@ -29,7 +29,9 @@ import org.pentaho.platform.api.engine.ISolutionEngine;
 import org.pentaho.platform.api.engine.IUserRoleListService;
 import org.pentaho.platform.api.engine.PentahoAccessControlException;
 import org.pentaho.platform.api.mt.ITenant;
+import org.pentaho.platform.api.repository2.unified.IAclNodeHelper;
 import org.pentaho.platform.api.repository2.unified.IUnifiedRepository;
+import org.pentaho.platform.api.repository2.unified.RepositoryFile;
 import org.pentaho.platform.engine.core.system.PentahoSessionHolder;
 import org.pentaho.platform.engine.core.system.PentahoSystem;
 import org.pentaho.platform.engine.core.system.boot.PlatformInitializationException;
@@ -58,10 +60,13 @@ import org.springframework.security.userdetails.UsernameNotFoundException;
 import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+
+import static org.mockito.Mockito.*;
 
 @SuppressWarnings( "nls" )
 public class UserRoleMapperTest {
@@ -70,17 +75,21 @@ public class UserRoleMapperTest {
 
   @Before
   public void init0() {
+    IAclNodeHelper aclHelper = mock( IAclNodeHelper.class );
+    when( aclHelper.canAccess( any( RepositoryFile.class ), any( EnumSet.class ) ) ).thenReturn( true );
+    MondrianCatalogHelper catalogService = new MondrianCatalogHelper( aclHelper );
+
     microPlatform = new MicroPlatform( "test-src/solution" );
     microPlatform.define( ISolutionEngine.class, SolutionEngine.class );
     microPlatform.define( IUnifiedRepository.class, FileSystemBackedUnifiedRepository.class, Scope.GLOBAL );
-    microPlatform.define( IMondrianCatalogService.class, MondrianCatalogHelper.class, Scope.GLOBAL );
+    microPlatform.defineInstance( IMondrianCatalogService.class, catalogService );
     microPlatform.define( "connection-SQL", SQLConnection.class );
     microPlatform.define( "connection-MDX", MDXConnection.class );
     microPlatform.define( IDBDatasourceService.class, JndiDatasourceService.class, Scope.GLOBAL );
     microPlatform.define( IUserRoleListService.class, TestUserRoleListService.class, Scope.GLOBAL );
     microPlatform.define( UserDetailsService.class, TestUserDetailsService.class, Scope.GLOBAL );
     FileSystemBackedUnifiedRepository repo =
-        (FileSystemBackedUnifiedRepository) PentahoSystem.get( IUnifiedRepository.class );
+      (FileSystemBackedUnifiedRepository) PentahoSystem.get( IUnifiedRepository.class );
     repo.setRootDir( new File( "test-src/solution" ) );
     try {
       microPlatform.start();
@@ -88,9 +97,8 @@ public class UserRoleMapperTest {
       Assert.fail();
     }
 
-    MondrianCatalogHelper catalogService = (MondrianCatalogHelper) PentahoSystem.get( IMondrianCatalogService.class );
     catalogService.setDataSourcesConfig( "file:"
-        + PentahoSystem.getApplicationContext().getSolutionPath( "test/analysis/test-datasources.xml" ) );
+      + PentahoSystem.getApplicationContext().getSolutionPath( "test/analysis/test-datasources.xml" ) );
 
     // JNDI
     System.setProperty( "java.naming.factory.initial", "org.osjava.sj.SimpleContextFactory" );
@@ -122,8 +130,8 @@ public class UserRoleMapperTest {
     String[] roleNames = ms.getRoleNames();
     Assert.assertNotNull( roleNames );
     Assert.assertEquals( 2, roleNames.length );
-    Assert.assertEquals( "Role1", roleNames[0] );
-    Assert.assertEquals( "Role2", roleNames[1] );
+    Assert.assertEquals( "Role1", roleNames[ 0 ] );
+    Assert.assertEquals( "Role2", roleNames[ 1 ] );
   }
 
   @Test
@@ -136,9 +144,9 @@ public class UserRoleMapperTest {
         GrantedAuthority[] gAuths = auth.getAuthorities();
         Assert.assertNotNull( gAuths );
         Assert.assertEquals( 3, gAuths.length );
-        Assert.assertEquals( "ceo", gAuths[0].getAuthority() );
-        Assert.assertEquals( "Admin", gAuths[1].getAuthority() );
-        Assert.assertEquals( "Authenticated", gAuths[2].getAuthority() );
+        Assert.assertEquals( "ceo", gAuths[ 0 ].getAuthority() );
+        Assert.assertEquals( "Admin", gAuths[ 1 ].getAuthority() );
+        Assert.assertEquals( "Authenticated", gAuths[ 2 ].getAuthority() );
         return null;
       }
     } );
@@ -161,9 +169,9 @@ public class UserRoleMapperTest {
 
       Assert.assertNotNull( roles );
       Assert.assertEquals( 3, roles.length );
-      Assert.assertEquals( "mondrianRole1", roles[0] );
-      Assert.assertEquals( "mondrianRole2", roles[1] );
-      Assert.assertEquals( "mondrianRole3", roles[2] );
+      Assert.assertEquals( "mondrianRole1", roles[ 0 ] );
+      Assert.assertEquals( "mondrianRole2", roles[ 1 ] );
+      Assert.assertEquals( "mondrianRole3", roles[ 2 ] );
     } catch ( PentahoAccessControlException e ) {
       Assert.fail( e.getMessage() );
     }
@@ -207,7 +215,7 @@ public class UserRoleMapperTest {
       } );
       Assert.assertNotNull( roles );
       Assert.assertEquals( 1, roles.length );
-      Assert.assertEquals( "Role1", roles[0] );
+      Assert.assertEquals( "Role1", roles[ 0 ] );
     } catch ( PentahoAccessControlException e ) {
       Assert.fail( e.getMessage() );
     }
@@ -263,8 +271,8 @@ public class UserRoleMapperTest {
 
       Assert.assertNotNull( roles );
       Assert.assertEquals( 2, roles.length );
-      Assert.assertEquals( "Role1", roles[0] );
-      Assert.assertEquals( "Role2", roles[1] );
+      Assert.assertEquals( "Role1", roles[ 0 ] );
+      Assert.assertEquals( "Role2", roles[ 1 ] );
 
     } catch ( PentahoAccessControlException e ) {
       Assert.fail( e.getMessage() );
@@ -379,7 +387,7 @@ public class UserRoleMapperTest {
 
         public GrantedAuthority[] getAuthorities() {
           if ( username == null ) {
-            return new GrantedAuthority[0];
+            return new GrantedAuthority[ 0 ];
           }
           if ( username.equals( "admin" ) ) {
             return new GrantedAuthority[] { new GrantedAuthorityImpl( "ceo" ), new GrantedAuthorityImpl( "Admin" ),
@@ -387,7 +395,7 @@ public class UserRoleMapperTest {
           } else if ( username.equals( "simplebob" ) ) {
             return new GrantedAuthority[] { new GrantedAuthorityImpl( "Role1" ), new GrantedAuthorityImpl( "Role2" ) };
           }
-          return new GrantedAuthority[0];
+          return new GrantedAuthority[ 0 ];
         }
       };
     }
