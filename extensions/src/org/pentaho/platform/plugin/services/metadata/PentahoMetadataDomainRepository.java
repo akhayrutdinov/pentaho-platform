@@ -61,6 +61,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * Handles the storage and retrieval of Pentaho Metada Domain objects in a repository. It does this by using a
@@ -121,6 +122,8 @@ public class PentahoMetadataDomainRepository implements IMetadataDomainRepositor
 
   private IAclNodeHelper aclHelper;
 
+  private final ReentrantReadWriteLock lock;
+
   /**
    * Creates an instance of this class providing the {@link IUnifiedRepository} repository backend.
    *
@@ -156,6 +159,7 @@ public class PentahoMetadataDomainRepository implements IMetadataDomainRepositor
     setRepositoryUtils( repositoryUtils );
     setLocalizationUtil( localizationUtil );
     setXmiParser( xmiParser );
+    this.lock = new ReentrantReadWriteLock();
   }
 
   /**
@@ -309,9 +313,14 @@ public class PentahoMetadataDomainRepository implements IMetadataDomainRepositor
   public Map<String, InputStream> getDomainFilesData( final String domainId ) {
     Map<String, InputStream> values = new HashMap<String, InputStream>();
     Set<RepositoryFile> metadataFiles;
-    synchronized ( metadataMapping ) {
+
+    lock.readLock().lock();
+    try {
       metadataFiles = metadataMapping.getFiles( domainId );
+    } finally {
+      lock.readLock().unlock();
     }
+
     for ( RepositoryFile repoFile : metadataFiles ) {
       RepositoryFileInputStream is;
       try {
@@ -386,7 +395,9 @@ public class PentahoMetadataDomainRepository implements IMetadataDomainRepositor
     logger.debug( "getDomainIds()" );
     internalReloadDomains();
     final Set<String> domainIds = new HashSet<String>();
-    synchronized ( metadataMapping ) {
+
+    lock.readLock().lock();
+    try {
       Collection<String> domains = metadataMapping.getDomainIds();
       for ( String domain : domains ) {
         if ( hasAccessFor( domain ) ) {
@@ -394,6 +405,8 @@ public class PentahoMetadataDomainRepository implements IMetadataDomainRepositor
         }
       }
       return domainIds;
+    } finally {
+      lock.readLock().unlock();
     }
   }
 
@@ -412,9 +425,12 @@ public class PentahoMetadataDomainRepository implements IMetadataDomainRepositor
 
     // Get the metadata domain file
     Set<RepositoryFile> domainFiles;
-    synchronized ( metadataMapping ) {
+    lock.writeLock().lock();
+    try {
       domainFiles = metadataMapping.getFiles( domainId );
       metadataMapping.deleteDomain( domainId );
+    } finally {
+      lock.writeLock().lock();
     }
 
     // it no node exists, nothing would happen
@@ -491,7 +507,8 @@ public class PentahoMetadataDomainRepository implements IMetadataDomainRepositor
    * Performs the process of reloading the domain information from the repository
    */
   private void internalReloadDomains() {
-    synchronized ( metadataMapping ) {
+    lock.writeLock().lock();
+    try {
       metadataMapping.reset();
 
       // Reload the metadata about the metadata (that was fun to say)
@@ -521,6 +538,8 @@ public class PentahoMetadataDomainRepository implements IMetadataDomainRepositor
           }
         }
       }
+    } finally {
+      lock.writeLock().unlock();
     }
   }
 
@@ -583,7 +602,8 @@ public class PentahoMetadataDomainRepository implements IMetadataDomainRepositor
             "PentahoMetadataDomainRepository.ERROR_0004_DOMAIN_ID_INVALID", domainId ) );
       }
 
-      synchronized ( metadataMapping ) {
+      lock.writeLock().lock();
+      try {
         // Check for duplicates
         final RepositoryFile localeFile = metadataMapping.getLocaleFile( domainId, locale );
         if ( !overwrite && localeFile != null ) {
@@ -599,10 +619,12 @@ public class PentahoMetadataDomainRepository implements IMetadataDomainRepositor
         } else {
           repository.updateFile( localeFile, data, null );
         }
-      }
 
-      // This invalidates any cached information
-      flushDomains();
+        // This invalidates any cached information
+        flushDomains();
+      } finally {
+        lock.writeLock().unlock();
+      }
     }
   }
 
@@ -726,11 +748,27 @@ public class PentahoMetadataDomainRepository implements IMetadataDomainRepositor
    * Accesses the metadata mapping (with 1 retry) to find the metadata file for the specified domainId
    */
   protected RepositoryFile getMetadataRepositoryFile( final String domainId ) {
-    RepositoryFile domainFile = metadataMapping.getDomainFile( domainId );
-    if ( null == domainFile ) {
-      reloadDomains();
+    lock.readLock().lock();
+    RepositoryFile domainFile;
+    try {
       domainFile = metadataMapping.getDomainFile( domainId );
+    } finally {
+      lock.readLock().unlock();
     }
+
+    if ( domainFile == null ) {
+      lock.writeLock().lock();
+      try {
+        domainFile = metadataMapping.getDomainFile( domainId );
+        if ( domainFile == null ) {
+          reloadDomains();
+          domainFile = metadataMapping.getDomainFile( domainId );
+        }
+      } finally {
+        lock.writeLock().unlock();
+      }
+    }
+
     return domainFile;
   }
 
