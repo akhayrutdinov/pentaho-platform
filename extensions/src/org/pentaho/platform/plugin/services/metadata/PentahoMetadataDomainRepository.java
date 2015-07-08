@@ -126,6 +126,7 @@ public class PentahoMetadataDomainRepository implements IMetadataDomainRepositor
   private IAclNodeHelper aclHelper;
 
   private final ReentrantReadWriteLock lock;
+  private boolean needToReload;
 
   /**
    * Creates an instance of this class providing the {@link IUnifiedRepository} repository backend.
@@ -159,6 +160,7 @@ public class PentahoMetadataDomainRepository implements IMetadataDomainRepositor
     setLocalizationUtil( localizationUtil );
     setXmiParser( xmiParser );
     this.lock = new ReentrantReadWriteLock();
+    this.needToReload = true;
   }
 
   /**
@@ -405,7 +407,7 @@ public class PentahoMetadataDomainRepository implements IMetadataDomainRepositor
   @Override
   public Set<String> getDomainIds() {
     logger.debug( "getDomainIds()" );
-    internalReloadDomains();
+    reloadDomainsIfNeeded();
 
     lock.readLock().lock();
     try {
@@ -526,6 +528,7 @@ public class PentahoMetadataDomainRepository implements IMetadataDomainRepositor
     lock.writeLock().lock();
     try {
       metadataMapping.reset();
+      needToReload = false;
 
       // Reload the metadata about the metadata (that was fun to say)
       final List<RepositoryFile> children = repository.getChildren( getMetadataDir().getId(), "*" );
@@ -775,7 +778,7 @@ public class PentahoMetadataDomainRepository implements IMetadataDomainRepositor
       try {
         domainFile = metadataMapping.getDomainFile( domainId );
         if ( domainFile == null ) {
-          reloadDomains();
+          reloadDomainsIfNeeded();
           domainFile = metadataMapping.getDomainFile( domainId );
         }
       } finally {
@@ -784,6 +787,17 @@ public class PentahoMetadataDomainRepository implements IMetadataDomainRepositor
     }
 
     return domainFile;
+  }
+
+  private void reloadDomainsIfNeeded() {
+    lock.writeLock().lock();
+    try {
+      if ( needToReload ) {
+        internalReloadDomains();
+      }
+    } finally {
+      lock.writeLock().unlock();
+    }
   }
 
   /**
