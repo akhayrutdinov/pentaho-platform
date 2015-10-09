@@ -70,6 +70,8 @@ public class JobScheduleRequest implements Serializable {
 
   String jobName;
 
+  String jobId;
+
   String inputFile;
 
   String outputFile;
@@ -184,4 +186,13 @@ public class JobScheduleRequest implements Serializable {
   public void setTimeZone( String timeZone ) {
     this.timeZone = timeZone;
   }
+
+  public String getJobId() {
+    return jobId;
+  }
+
+  public void setJobId( String jobId ) {
+    this.jobId = jobId;
+  }
+
 }

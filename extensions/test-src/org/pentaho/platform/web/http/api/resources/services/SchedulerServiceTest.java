@@ -20,6 +20,7 @@ import static org.junit.Assert.*;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.*;
+import static org.pentaho.platform.scheduler2.quartz.QuartzScheduler.RESERVEDMAPKEY_ACTIONUSER;
 
 import org.junit.After;
 import org.junit.Before;
@@ -61,7 +62,7 @@ import java.util.Set;
 
 public class SchedulerServiceTest {
 
-  private static SchedulerService schedulerService;
+  private SchedulerService schedulerService;
 
   @Before
   public void setUp() {
@@ -124,13 +125,13 @@ public class SchedulerServiceTest {
     doReturn( true ).when( schedulerService ).getAutoCreateUniqueFilename( any( JobScheduleRequest.class ) );
 
     doReturn( job ).when( schedulerService.scheduler )
-        .createJob( anyString(), anyString(), any( Map.class ), any( IJobTrigger.class ),
-            any( IBackgroundExecutionStreamProvider.class ) );
+      .createJob( anyString(), anyString(), any( Map.class ), any( IJobTrigger.class ),
+        any( IBackgroundExecutionStreamProvider.class ) );
 
     doReturn( Class.class ).when( schedulerService ).getAction( anyString() );
 
     doReturn( job ).when( schedulerService.scheduler )
-        .createJob( anyString(), any( Class.class ), any( Map.class ), any( IJobTrigger.class ) );
+      .createJob( anyString(), any( Class.class ), any( Map.class ), any( IJobTrigger.class ) );
 
     //Test 1
     schedulerService.createJob( scheduleRequest );
@@ -161,7 +162,7 @@ public class SchedulerServiceTest {
     verify( scheduleRequest, times( 5 ) ).getActionClass();
     verify( schedulerService ).getAction( anyString() );
     verify( schedulerService.scheduler )
-        .createJob( anyString(), any( Class.class ), any( Map.class ), any( IJobTrigger.class ) );
+      .createJob( anyString(), any( Class.class ), any( Map.class ), any( IJobTrigger.class ) );
   }
 
   @Test
@@ -211,13 +212,13 @@ public class SchedulerServiceTest {
     doReturn( true ).when( schedulerService ).getAutoCreateUniqueFilename( any( JobScheduleRequest.class ) );
 
     doReturn( job ).when( schedulerService.scheduler )
-        .createJob( anyString(), anyString(), any( Map.class ), any( IJobTrigger.class ),
-            any( IBackgroundExecutionStreamProvider.class ) );
+      .createJob( anyString(), anyString(), any( Map.class ), any( IJobTrigger.class ),
+        any( IBackgroundExecutionStreamProvider.class ) );
 
     doReturn( Class.class ).when( schedulerService ).getAction( anyString() );
 
     doReturn( job ).when( schedulerService.scheduler )
-        .createJob( anyString(), any( Class.class ), any( Map.class ), any( IJobTrigger.class ) );
+      .createJob( anyString(), any( Class.class ), any( Map.class ), any( IJobTrigger.class ) );
 
 
     //Test 1
@@ -641,7 +642,7 @@ public class SchedulerServiceTest {
 
     List<RepositoryFileDto> mockList = mock( List.class );
     doReturn( mockList ).when( mockFileService )
-        .searchGeneratedContent( currentUserDir, lineageId, QuartzScheduler.RESERVEDMAPKEY_LINEAGE_ID );
+      .searchGeneratedContent( currentUserDir, lineageId, QuartzScheduler.RESERVEDMAPKEY_LINEAGE_ID );
 
     List<RepositoryFileDto> list = schedulerService.doGetGeneratedContentForSchedule( lineageId );
     assertEquals( mockList, list );
@@ -742,7 +743,7 @@ public class SchedulerServiceTest {
     jobParamsKeyset.add( jobParamKey );
 
     String value = "value";
-    String[] testArray = new String[]{value};
+    String[] testArray = new String[] { value };
     doReturn( testArray ).when( mockJobParams ).get( jobParamKey );
 
     // Test 1
@@ -1127,7 +1128,8 @@ public class SchedulerServiceTest {
 
     JobScheduleRequest jobScheduleRequestMock = mock( JobScheduleRequest.class );
 
-    doThrow( new SchedulerException( "" ) ).when( schedulerService ).convertScheduleRequestToJobTrigger( jobScheduleRequestMock );
+    doThrow( new SchedulerException( "" ) ).when( schedulerService )
+      .convertScheduleRequestToJobTrigger( jobScheduleRequestMock );
 
     try {
       schedulerService.getBlockStatus( jobScheduleRequestMock );
@@ -1137,5 +1139,46 @@ public class SchedulerServiceTest {
     }
 
     verify( schedulerService ).convertScheduleRequestToJobTrigger( jobScheduleRequestMock );
+  }
+
+
+  @Test
+  public void updateJob_AddsJobOwnerParameter() throws Exception {
+    Job job = new Job();
+    job.setUserName( "user-name" );
+    testUpdateJob( job, job.getUserName() );
+  }
+
+  @Test
+  public void updateJob_DoesNotAddJobOwnerParameter_IfJobWasNotFoundById() throws Exception {
+    testUpdateJob( null, null );
+  }
+
+  private void testUpdateJob( Job foundById, Serializable expectedValueOfUserParam ) throws Exception {
+    JobScheduleRequest request = new JobScheduleRequest();
+    request.setJobId( "job-id" );
+
+    when( schedulerService.scheduler.getJob( "job-id" ) ).thenReturn( foundById );
+
+    Job newJob = new Job();
+    doReturn( newJob ).when( schedulerService ).createJob( request );
+    doReturn( true ).when( schedulerService ).removeJob( "job-id" );
+
+    Job shouldBeNew = schedulerService.updateJob( request );
+    assertEquals( newJob, shouldBeNew );
+
+    Serializable found = null;
+    for ( JobScheduleParam param : request.getJobParameters() ) {
+      if ( RESERVEDMAPKEY_ACTIONUSER.equals( param.getName() ) ) {
+        found = param.getValue();
+        break;
+      }
+    }
+    if ( expectedValueOfUserParam == null ) {
+      assertNull( RESERVEDMAPKEY_ACTIONUSER + " is not expected among: " + request.getJobParameters(), found );
+    } else {
+      assertEquals( RESERVEDMAPKEY_ACTIONUSER + " was not found among: " + request.getJobParameters(),
+        expectedValueOfUserParam, found );
+    }
   }
 }

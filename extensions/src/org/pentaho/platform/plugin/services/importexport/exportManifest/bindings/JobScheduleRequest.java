@@ -66,7 +66,7 @@ import java.util.List;
  */
 @XmlAccessorType( XmlAccessType.FIELD )
 @XmlType( name = "jobScheduleRequest", propOrder = { "actionClass", "complexJobTrigger", "cronJobTrigger", "duration",
-    "inputFile", "jobName", "jobParameters", "outputFile", "simpleJobTrigger", "timeZone" } )
+    "inputFile", "jobName", "jobParameters", "outputFile", "simpleJobTrigger", "timeZone", "jobId" } )
 public class JobScheduleRequest {
 
   protected String actionClass;
@@ -76,6 +76,7 @@ public class JobScheduleRequest {
   protected long duration;
   protected String inputFile;
   protected String jobName;
+  protected String jobId;
   @XmlElement( nillable = true )
   protected List<JobScheduleParam> jobParameters;
   protected String outputFile;
@@ -293,6 +294,14 @@ public class JobScheduleRequest {
    */
   public void setTimeZone( String value ) {
     this.timeZone = value;
+  }
+
+  public String getJobId() {
+    return jobId;
+  }
+
+  public void setJobId( String jobId ) {
+    this.jobId = jobId;
   }
 
 }
